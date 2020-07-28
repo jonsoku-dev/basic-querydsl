@@ -14,6 +14,7 @@ import javax.persistence.PersistenceContext;
 
 import java.util.List;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static study.querydsl.entity.QMember.*;
 
 @SpringBootTest
@@ -58,7 +59,7 @@ public class QuerydslBasicTest {
                 .setParameter("username", "member1")
                 .getSingleResult();
 
-        Assertions.assertThat(findMember.getUsername()).isEqualTo("member1");
+        assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
     @Test
@@ -69,7 +70,7 @@ public class QuerydslBasicTest {
                .where(member.username.eq("member1"))
                .fetchOne();
 
-       Assertions.assertThat(findMember.getUsername()).isEqualTo("member1");
+       assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
     // member.username.eq("member1") // username = 'member1'
@@ -98,9 +99,9 @@ public class QuerydslBasicTest {
                         member.age.eq(10))
                 .fetchOne();
 
-        Assertions.assertThat(findMember.getUsername()).isEqualTo("member1");
-        Assertions.assertThat(findMember.getAge()).isEqualTo(10);
-        Assertions.assertThat(findMember).isNotNull();
+        assertThat(findMember.getUsername()).isEqualTo("member1");
+        assertThat(findMember.getAge()).isEqualTo(10);
+        assertThat(findMember).isNotNull();
     }
 
     /**
@@ -125,13 +126,14 @@ public class QuerydslBasicTest {
         Member member6 = result.get(1); // 이름 오츰차순 6
         Member memberNull = result.get(2); // null이라서 마지막으로 갔는지 확인
 
-        Assertions.assertThat(member5.getUsername()).isEqualTo("member5");
-        Assertions.assertThat(member6.getUsername()).isEqualTo("member6");
-        Assertions.assertThat(memberNull.getUsername()).isNull();
+        assertThat(member5.getUsername()).isEqualTo("member5");
+        assertThat(member6.getUsername()).isEqualTo("member6");
+        assertThat(memberNull.getUsername()).isNull();
     }
 
     /**
-     * 페이징
+     * 페이징 1
+     * 조회 건수 제한
      */
     @Test
     public void paging1 () {
@@ -140,8 +142,31 @@ public class QuerydslBasicTest {
                 .orderBy(member.username.desc())
                 .offset(1)
                 .limit(2) // 2개만 가져오는 limit
-                .fetch();
+                .fetch(); // count쿼리가 날려지지 않는다.
 
-        Assertions.assertThat(result.size()).isEqualTo(2);
+        assertThat(result.size()).isEqualTo(2);
+    }
+    /**
+     * 페이징 2
+     * 전체 조회수가 필요하다면 ?
+     * 주의: count 쿼리가 실행되니 성능상 주의!
+     * 참고: 실무에서 페이징 쿼리를 작성할 때, 데이터를 조회하는 쿼리는 여러 테이블을 조인해야 하지만,
+     * count 쿼리는 조인이 필요 없는 경우도 있다. 그런데 이렇게 자동화된 count 쿼리는 원본 쿼리와 같이 모두
+     * 조인을 해버리기 때문에 성능이 안나올 수 있다. count 쿼리에 조인이 필요없는 성능 최적화가 필요하다면,
+     * count 전용 쿼리를 별도로 작성해야 한다.
+     */
+    @Test
+    public void paging2 () {
+        QueryResults<Member> queryResults = queryFactory
+                .selectFrom(member)
+                .orderBy(member.username.desc())
+                .offset(1)
+                .limit(2)
+                .fetchResults(); // fetchResults 는 count쿼리가 날려진다. 즉, getTotal() 메소드를 사용할 수 있다.
+
+        assertThat(queryResults.getTotal()).isEqualTo(4);
+        assertThat(queryResults.getLimit()).isEqualTo(2);
+        assertThat(queryResults.getOffset()).isEqualTo(1);
+        assertThat(queryResults.getResults().size()).isEqualTo(2);
     }
 }
