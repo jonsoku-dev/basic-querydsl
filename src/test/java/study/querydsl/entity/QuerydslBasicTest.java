@@ -236,7 +236,38 @@ public class QuerydslBasicTest {
 
         assertThat(teamB.get(team.name)).isEqualTo("teamB");
         assertThat(teamB.get(member.age.avg())).isEqualTo(35);
-
-
     }
+
+    /**
+     * 기본 조인
+     * 조인의 기본 문법은 첫 번째 파라미터에 조인 대상을 지정하고, 두 번째 파라미터에 별칭으로 사용할 Q타입을 지정하면 된다.
+     * join(조인대상, 별칭으로 사용할 Q타입)
+     *
+     * join() , innerJoin() : 내부 조인(inner join)
+     * leftJoin() : left 외부 조인(left outer join)
+     * rightJoin() : right 외부 조인(right outer join)
+     * JPQL의 on 과 성능 최적화를 위한 fetch 조인 제공 다음 on 절에서 설명
+     *
+     * 테스트케이스 예시 ) 팀 A에 소속된 모든 회원
+     */
+    @Test
+    public void join() throws Exception {
+        QMember member = QMember.member;
+        QTeam team = QTeam.team;
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .join(member.team, team)
+                .where(team.name.eq("teamA"))
+                .fetch();
+
+        for (Member member1 : result) {
+            System.out.println("member1 = " + member1);
+        }
+
+        assertThat(result)
+                .extracting("username")
+                .containsExactly("member1", "member2");
+    }
+
 }
