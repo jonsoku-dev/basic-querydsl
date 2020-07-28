@@ -10,7 +10,9 @@ import org.springframework.test.annotation.Commit;
 import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 import javax.persistence.PersistenceContext;
+import javax.persistence.PersistenceUnit;
 
 import java.util.List;
 
@@ -26,6 +28,9 @@ public class QuerydslBasicTest {
     EntityManager em;
 
     JPAQueryFactory queryFactory;
+
+    @PersistenceUnit
+    EntityManagerFactory emf;
 
     // 테스트 코드가 실행되기 전에 실행 되는 부분
     // 여기에서는 팀과 멤버를 DB에 넣는다.
@@ -239,14 +244,17 @@ public class QuerydslBasicTest {
     }
 
     /**
+     *      * join(조인대상, 별칭으로 사용할 Q타입)
+     *      *
+     *      * join() , innerJoin() : 내부 조인(inner join)
+     *      * leftJoin() : left 외부 조인(left outer join)
+     *      * rightJoin() : right 외부 조인(right outer join)
+     *      * JPQL의 on 과 성능 최적화를 위한 fetch 조인 제공 다음 on 절에서 설명
+     */
+
+    /**
      * 기본 조인
      * 조인의 기본 문법은 첫 번째 파라미터에 조인 대상을 지정하고, 두 번째 파라미터에 별칭으로 사용할 Q타입을 지정하면 된다.
-     * join(조인대상, 별칭으로 사용할 Q타입)
-     *
-     * join() , innerJoin() : 내부 조인(inner join)
-     * leftJoin() : left 외부 조인(left outer join)
-     * rightJoin() : right 외부 조인(right outer join)
-     * JPQL의 on 과 성능 최적화를 위한 fetch 조인 제공 다음 on 절에서 설명
      *
      * 테스트케이스 예시 ) 팀 A에 소속된 모든 회원
      */
@@ -268,6 +276,101 @@ public class QuerydslBasicTest {
         assertThat(result)
                 .extracting("username")
                 .containsExactly("member1", "member2");
+    }
+    /**
+     * 세타 조인
+     * 연관관계가 없는 필드로 조인
+     * from 절에 여러 엔티티를 선택해서 세타 조인
+     * 외부 조인 불가능 다음에 설명할 조인 on을 사용하면 외부 조인 가능
+     *
+     * 테스트케이스 예시 ) 회원의 이름이 팀 이름과 같은 회원 조회
+     */
+    @Test
+    public void theta_join() throws Exception {
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        List<Member> result = queryFactory
+                .select(member)
+                .from(member, team)
+                .where(member.username.eq(team.name))
+                .fetch();
+        assertThat(result)
+                .extracting("username")
+                .containsExactly("teamA", "teamB");
+    }
+
+    /**
+     * 조인 대상 필터링
+     * ON절을 활용한 조인(JPA 2.1부터 지원)
+     *
+     * 1. 조인 대상 필터링
+     * 예) 회원과 팀을 조인하면서, 팀 이름이 teamA인 팀만 조인, 회원은 모두 조회
+     */
+
+    /**
+     * 예) 회원과 팀을 조인하면서, 팀 이름이 teamA인 팀만 조인, 회원은 모두 조회
+     * JPQL: SELECT m, t FROM Member m LEFT JOIN m.team t on t.name = 'teamA'
+     * SQL: SELECT m.*, t.* FROM Member m LEFT JOIN Team t ON m.TEAM_ID=t.id and
+     t.name='teamA'
+     */
+    @Test
+    public void join_on_filtering() throws Exception {
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(member.team, team).on(team.name.eq("teamA"))
+                .fetch();
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+        //  t=[Member(id=3, username=member1, age=10), Team(id=1, name=teamA)]
+        //  t=[Member(id=4, username=member2, age=20), Team(id=1, name=teamA)]
+        //  t=[Member(id=5, username=member3, age=30), null]
+        //  t=[Member(id=6, username=member4, age=40), null]
+    }
+    /**
+     * 2. 연관관계 없는 엔티티 외부 조인
+     * 예) 회원의 이름과 팀의 이름이 같은 대상 외부 조인
+     * JPQL: SELECT m, t FROM Member m LEFT JOIN Team t on m.username = t.name
+     * SQL: SELECT m.*, t.* FROM Member m LEFT JOIN Team t ON m.username = t.name
+     */
+    @Test
+    public void join_on_no_relation() throws Exception {
+        em.persist(new Member("teamA"));
+        em.persist(new Member("teamB"));
+        List<Tuple> result = queryFactory
+                .select(member, team)
+                .from(member)
+                .leftJoin(team).on(member.username.eq(team.name))
+                .fetch();
+        for (Tuple tuple : result) {
+            System.out.println("t=" + tuple);
+        }
+        //        t=[Member(id=3, username=member1, age=10), null]
+        //        t=[Member(id=4, username=member2, age=20), null]
+        //        t=[Member(id=5, username=member3, age=30), null]
+        //        t=[Member(id=6, username=member4, age=40), null]
+        //        t=[Member(id=7, username=teamA, age=0), Team(id=1, name=teamA)]
+        //        t=[Member(id=8, username=teamB, age=0), Team(id=2, name=teamB)]
+    }
+
+    /**
+     * 조인 - 페치 조인
+     * 페치 조인은 SQL에서 제공하는 기능은 아니다. SQL조인을 활용해서 연관된 엔티티를 SQL 한번에 조회하
+     * 는 기능이다. 주로 성능 최적화에 사용하는 방법이다.
+     */
+    @Test
+    public void fetchJoinUse() throws Exception {
+        em.flush();
+        em.clear();
+        Member findMember = queryFactory
+                .selectFrom(member)
+                .join(member.team, team).fetchJoin()
+                .where(member.username.eq("member1"))
+                .fetchOne();
+        boolean loaded =
+                emf.getPersistenceUnitUtil().isLoaded(findMember.getTeam());
+        assertThat(loaded).as("페치 조인 적용").isTrue();
     }
 
 }
