@@ -1,5 +1,6 @@
 package study.querydsl.entity;
 
+import com.querydsl.core.QueryResults;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -10,6 +11,8 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.persistence.EntityManager;
 import javax.persistence.PersistenceContext;
+
+import java.util.List;
 
 import static study.querydsl.entity.QMember.*;
 
@@ -69,11 +72,30 @@ public class QuerydslBasicTest {
        Assertions.assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
+    // member.username.eq("member1") // username = 'member1'
+    //member.username.ne("member1") //username != 'member1'
+    //member.username.eq("member1").not() // username != 'member1'
+    //member.username.isNotNull() //이름이 is not null
+    //member.age.in(10, 20) // age in (10,20)
+    //member.age.notIn(10, 20) // age not in (10, 20)
+    //member.age.between(10,30) //between 10, 30
+    //member.age.goe(30) // age >= 30
+    //member.age.gt(30) // age > 30
+    //member.age.loe(30) // age <= 30
+    //member.age.lt(30) // age < 30
+    //member.username.like("member%") //like 검색
+    //member.username.contains("member") // like ‘%member%’ 검색
+    //member.username.startsWith("member") //like ‘member%’ 검색
+
     @Test
     public void search() {
         Member findMember = queryFactory
                 .selectFrom(member)
-                .where(member.username.eq("member1").and(member.age.eq(10)))
+                // 검색 조건은 and, or를 메서드 체인으로 연결 할 수 있다.
+                // and의 경우 ,으로 구분할 수 있다.
+                .where(
+                        member.username.eq("member1"),
+                        member.age.eq(10))
                 .fetchOne();
 
         Assertions.assertThat(findMember.getUsername()).isEqualTo("member1");
