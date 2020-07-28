@@ -1,8 +1,8 @@
 package study.querydsl.entity;
 
 import com.querydsl.core.QueryResults;
+import com.querydsl.core.Tuple;
 import com.querydsl.jpa.impl.JPAQueryFactory;
-import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -73,20 +73,22 @@ public class QuerydslBasicTest {
        assertThat(findMember.getUsername()).isEqualTo("member1");
     }
 
-    // member.username.eq("member1") // username = 'member1'
-    //member.username.ne("member1") //username != 'member1'
-    //member.username.eq("member1").not() // username != 'member1'
-    //member.username.isNotNull() //이름이 is not null
-    //member.age.in(10, 20) // age in (10,20)
-    //member.age.notIn(10, 20) // age not in (10, 20)
-    //member.age.between(10,30) //between 10, 30
-    //member.age.goe(30) // age >= 30
-    //member.age.gt(30) // age > 30
-    //member.age.loe(30) // age <= 30
-    //member.age.lt(30) // age < 30
-    //member.username.like("member%") //like 검색
-    //member.username.contains("member") // like ‘%member%’ 검색
-    //member.username.startsWith("member") //like ‘member%’ 검색
+    /**
+     *     member.username.eq("member1") // username = 'member1'
+     *     member.username.ne("member1") //username != 'member1'
+     *     member.username.eq("member1").not() // username != 'member1'
+     *     member.username.isNotNull() //이름이 is not null
+     *     member.age.in(10, 20) // age in (10,20)
+     *     member.age.notIn(10, 20) // age not in (10, 20)
+     *     member.age.between(10,30) //between 10, 30
+     *     member.age.goe(30) // age >= 30
+     *     member.age.gt(30) // age > 30
+     *     member.age.loe(30) // age <= 30
+     *     member.age.lt(30) // age < 30
+     *     member.username.like("member%") //like 검색
+     *     member.username.contains("member") // like ‘%member%’ 검색
+     *     member.username.startsWith("member") //like ‘member%’ 검색
+     */
 
     @Test
     public void search() {
@@ -168,5 +170,39 @@ public class QuerydslBasicTest {
         assertThat(queryResults.getLimit()).isEqualTo(2);
         assertThat(queryResults.getOffset()).isEqualTo(1);
         assertThat(queryResults.getResults().size()).isEqualTo(2);
+    }
+
+    /**
+     * [집합] JPQL
+     * select
+     *  COUNT(m), //회원수
+     *  SUM(m.age), //나이 합
+     *  AVG(m.age), //평균 나이
+     *  MAX(m.age), //최대 나이
+     *  MIN(m.age) //최소 나이
+     * from Member m
+     */
+    @Test
+    public void aggregation() throws Exception {
+        List<Tuple> result = queryFactory
+                .select(member.count(),
+                        member.age.sum(),
+                        member.age.avg(),
+                        member.age.max(),
+                        member.age.min())
+                .from(member)
+                .fetch();
+
+        for (Tuple tuple : result) {
+            System.out.println("tuple = " + tuple);
+        }
+        // tuple = [4, 100, 25.0, 40, 10]
+
+        Tuple tuple = result.get(0);
+        assertThat(tuple.get(member.count())).isEqualTo(4);
+        assertThat(tuple.get(member.age.sum())).isEqualTo(100);
+        assertThat(tuple.get(member.age.avg())).isEqualTo(25);
+        assertThat(tuple.get(member.age.max())).isEqualTo(40);
+        assertThat(tuple.get(member.age.min())).isEqualTo(10);
     }
 }
