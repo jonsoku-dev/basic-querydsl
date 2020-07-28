@@ -102,4 +102,33 @@ public class QuerydslBasicTest {
         Assertions.assertThat(findMember.getAge()).isEqualTo(10);
         Assertions.assertThat(findMember).isNotNull();
     }
+
+    /**
+     * 회원 정렬 순서
+     * 1. 회원 나이 내림차순 (desc)
+     * 2. 회원 이름 오름차순 (asc)
+     * 단, 2에서 회원 이름이 없으면 마지막 출력 (nulls last)
+     */
+    @Test
+    public void sort() {
+        em.persist(new Member(null, 100));
+        em.persist(new Member("member5", 100));
+        em.persist(new Member("member6", 100));
+
+        List<Member> result = queryFactory
+                .selectFrom(member)
+                .where(member.age.eq(100))
+                .orderBy(member.age.desc(), member.username.asc().nullsLast()) // null이면 제일 마지막으로 보낸다.
+                .fetch();
+
+        Member member5 = result.get(0); // 이름 오른차순 5
+        Member member6 = result.get(1); // 이름 오츰차순 6
+        Member memberNull = result.get(2); // null이라서 마지막으로 갔는지 확인
+
+        Assertions.assertThat(member5.getUsername()).isEqualTo("member5");
+        Assertions.assertThat(member6.getUsername()).isEqualTo("member6");
+        Assertions.assertThat(memberNull.getUsername()).isNull();
+
+
+    }
 }
